@@ -4,7 +4,7 @@ A hobby operating system kernel written in C, inspired by [sphaerophoria's Writi
 
 ## Overview
 
-Shogun-OS is a learning-focused operating system kernel that demonstrates fundamental concepts of low-level system programming and kernel development. 
+Shogun-OS is a learning-focused operating system kernel that demonstrates fundamental concepts of low-level system programming and kernel development.
 
 ## Features
 
@@ -13,6 +13,9 @@ Shogun-OS is a learning-focused operating system kernel that demonstrates fundam
 ✅ Multiboot information parsing (memory map, bootloader name)  
 ✅ Custom linked-list memory allocator for dynamic memory management  
 ✅ Cross-platform build system
+✅ UART/serial output for enhanced debugging and testing  
+✅ Automated test infrastructure with pass/fail reporting  
+✅ Dual output support (VGA and serial)
 
 ## Installation
 
@@ -65,6 +68,12 @@ To run the kernel in QEMU:
 
 ```bash
 qemu-system-i386 -cdrom shogun-os.iso
+```
+
+For serial output, you can also run:
+
+```bash
+qemu-system-i386 -cdrom shogun-os.iso -serial stdio
 ```
 
 ## Inspiration and Acknowledgement

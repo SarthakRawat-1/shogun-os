@@ -1,5 +1,6 @@
 #include "memory.h"
 #include "terminal.h"
+#include "io.h"
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -232,7 +233,7 @@ void debug_print_free_list() {
     int index = 0;
     
     if (current == NULL) {
-        write_string("Free list is empty\\n");
+        output_string("Free list is empty\\n");
         return;
     }
     
@@ -241,18 +242,18 @@ void debug_print_free_list() {
         uint32_t end_addr = start_addr + sizeof(FreeSegment) + current->size;
         
         put_hex(start_addr);
-        write_string(": ");
+        output_string(": ");
         put_hex(end_addr);
-        write_string(", FreeSegment { size: ");
+        output_string(", FreeSegment { size: ");
         put_u32(current->size);
-        write_string(", next_segment: ");
+        output_string(", next_segment: ");
         
         if (current->next_segment) {
             put_hex((uint32_t)current->next_segment);
         } else {
-            write_string("0x0");
+            output_string("0x0");
         }
-        write_string(" }\\n");
+        output_string(" }\\n");
         
         current = current->next_segment;
         index++;

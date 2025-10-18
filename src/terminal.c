@@ -1,4 +1,5 @@
 #include "terminal.h"
+#include "io.h"
 
 static uint16_t* vga_buffer = (uint16_t*)VGA_BUFFER;
 static uint8_t terminal_row = 0;
@@ -105,7 +106,7 @@ void int_to_string(int32_t num, char* buffer) {
 void put_i32(int32_t num) {
     char buffer[12]; 
     int_to_string(num, buffer);
-    write_string(buffer);
+    output_string(buffer);
 }
 
 void uint_to_string(uint32_t num, char* buffer) {
@@ -137,7 +138,7 @@ void uint_to_string(uint32_t num, char* buffer) {
 void put_u32(uint32_t num) {
     char buffer[11]; 
     uint_to_string(num, buffer);
-    write_string(buffer);
+    output_string(buffer);
 }
 
 void put_u64(uint64_t num) {
@@ -149,25 +150,25 @@ void put_u64(uint64_t num) {
         char buffer[11];
         uint_to_string(lower, buffer);
         if (lower < 10) {
-            write_string("000000000");
+            output_string("000000000");
         } else if (lower < 100) {
-            write_string("00000000");
+            output_string("00000000");
         } else if (lower < 1000) {
-            write_string("0000000");
+            output_string("0000000");
         } else if (lower < 10000) {
-            write_string("000000");
+            output_string("000000");
         } else if (lower < 100000) {
-            write_string("00000");
+            output_string("00000");
         } else if (lower < 1000000) {
-            write_string("0000");
+            output_string("0000");
         } else if (lower < 10000000) {
-            write_string("000");
+            output_string("000");
         } else if (lower < 100000000) {
-            write_string("00");
+            output_string("00");
         } else if (lower < 1000000000) {
-            write_string("0");
+            output_string("0");
         }
-        write_string(buffer);
+        output_string(buffer);
     } else {
         put_u32(lower);
     }
@@ -186,5 +187,21 @@ void put_hex(uint32_t num) {
     }
     buffer[10] = '\0';
     
-    write_string(&buffer[0]);
+    output_string(&buffer[0]);
+}
+
+void init_output() {
+    init_serial();
+}
+
+void output_char(char c) {
+    terminal_put_char(c);
+
+    write_serial(c);
+}
+
+void output_string(const char* str) {
+    write_string(str);
+    
+    write_serial_string(str);
 }

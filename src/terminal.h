@@ -23,4 +23,9 @@ void put_u32(uint32_t num);
 void put_u64(uint64_t num);
 void put_hex(uint32_t num);
 
+void init_output();
+
+void output_char(char c);
+void output_string(const char* str);
+
 #endif

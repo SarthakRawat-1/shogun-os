@@ -30,6 +30,8 @@ KERNEL = $(SRCDIR)/kernel.c
 TERMINAL = $(SRCDIR)/terminal.c
 LIBC = $(SRCDIR)/libc.c
 MEMORY = $(SRCDIR)/memory.c
+IO = $(SRCDIR)/io.c
+TEST = $(SRCDIR)/test.c
 LINKER = linker.ld
 TARGET_KERNEL = $(BINDIR)/kernel
 
@@ -42,7 +44,9 @@ all:
 	$(CC) $(CFLAGS) -c $(TERMINAL) -o $(OBJDIR)/terminal.o
 	$(CC) $(CFLAGS) -c $(LIBC) -o $(OBJDIR)/libc.o
 	$(CC) $(CFLAGS) -c $(MEMORY) -o $(OBJDIR)/memory.o
-	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o
+	$(CC) $(CFLAGS) -c $(IO) -o $(OBJDIR)/io.o
+	$(CC) $(CFLAGS) -c $(TEST) -o $(OBJDIR)/test.o
+	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/test.o
 	mkdir -p isodir/boot/grub
 	cp $(TARGET_KERNEL) isodir/boot/kernel
 	cp grub.cfg isodir/boot/grub/grub.cfg
