@@ -9,6 +9,7 @@ SECTIONS
     /* Begin putting sections at 1 MiB, a conventional place for kernels to be
        loaded at by the bootloader. */
     . = 1M;
+    kernel_start = .; /* Mark the start of kernel */
 
     /* First put the multiboot header, as it is required to be put very early
        early in the image or the bootloader won't recognize the file format.
@@ -38,6 +39,7 @@ SECTIONS
         *(.bss)
     }
 
+    kernel_end = .; /* Mark the end of kernel */
     /* Without this kernel end is not incremented to avoid colliding with bss */
     .phony : {
 
