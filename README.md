@@ -15,11 +15,11 @@ Shogun-OS is a learning-focused operating system kernel that demonstrates fundam
 ✅ Cross-platform build system  
 ✅ UART/serial output for enhanced debugging and testing  
 ✅ Automated test infrastructure with pass/fail reporting  
-✅ Dual output support (VGA and serial)
-✅ Port Manager system for safe I/O port allocation
-✅ Real-Time Clock (RTC) driver with CMOS access
-✅ NMI (Non-Maskable Interrupt) handling for safe hardware access
-✅ Binary format configuration for proper time encoding
+✅ Dual output support (VGA and serial)  
+✅ Port Manager system for safe I/O port allocation  
+✅ Real-Time Clock (RTC) driver with CMOS access  
+✅ NMI (Non-Maskable Interrupt) handling for safe hardware access  
+✅ Binary format configuration for proper time encoding  
 
 ## Installation
 
