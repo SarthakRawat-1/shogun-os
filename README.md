@@ -12,7 +12,7 @@ Shogun-OS is a learning-focused operating system kernel that demonstrates fundam
 ✅ VGA text mode output with proper scrolling and new-line support  
 ✅ Multiboot information parsing (memory map, bootloader name)  
 ✅ Custom linked-list memory allocator for dynamic memory management  
-✅ Cross-platform build system
+✅ Cross-platform build system  
 ✅ UART/serial output for enhanced debugging and testing  
 ✅ Automated test infrastructure with pass/fail reporting  
 ✅ Dual output support (VGA and serial)
