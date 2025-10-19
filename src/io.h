@@ -2,6 +2,10 @@
 #define IO_H
 
 #include <stdint.h>
+#include "port_manager.h"
+
+uint8_t read_port_b(PortHandle* handle);
+void write_port_b(PortHandle* handle, uint8_t value);
 
 uint8_t in_b(uint16_t port);
 void out_b(uint16_t port, uint8_t value);

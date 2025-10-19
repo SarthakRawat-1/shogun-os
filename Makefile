@@ -31,6 +31,8 @@ TERMINAL = $(SRCDIR)/terminal.c
 LIBC = $(SRCDIR)/libc.c
 MEMORY = $(SRCDIR)/memory.c
 IO = $(SRCDIR)/io.c
+PORT_MANAGER = $(SRCDIR)/port_manager.c
+RTC = $(SRCDIR)/rtc.c
 TEST = $(SRCDIR)/test.c
 LINKER = linker.ld
 TARGET_KERNEL = $(BINDIR)/kernel
@@ -45,8 +47,10 @@ all:
 	$(CC) $(CFLAGS) -c $(LIBC) -o $(OBJDIR)/libc.o
 	$(CC) $(CFLAGS) -c $(MEMORY) -o $(OBJDIR)/memory.o
 	$(CC) $(CFLAGS) -c $(IO) -o $(OBJDIR)/io.o
+	$(CC) $(CFLAGS) -c $(PORT_MANAGER) -o $(OBJDIR)/port_manager.o
+	$(CC) $(CFLAGS) -c $(RTC) -o $(OBJDIR)/rtc.o
 	$(CC) $(CFLAGS) -c $(TEST) -o $(OBJDIR)/test.o
-	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/test.o
+	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/port_manager.o $(OBJDIR)/rtc.o $(OBJDIR)/test.o
 	mkdir -p isodir/boot/grub
 	cp $(TARGET_KERNEL) isodir/boot/kernel
 	cp grub.cfg isodir/boot/grub/grub.cfg

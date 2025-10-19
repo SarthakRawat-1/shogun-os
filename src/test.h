@@ -20,8 +20,14 @@ void test_assert_equal(int expected, int actual, const char* message, const char
 
 #define TEST(name) void test_##name(void)
 
+#define CREATE_TEST(name) \
+    void test_##name(void); \
+    static test_entry_t test_entry_##name = {#name, test_##name}; \
+    void test_##name(void)
+
 #define TEST_ENTRY(name) {#name, test_##name}
 
 void run_memory_tests();
+void exit_after_all_tests(int exit_code);
 
 #endif

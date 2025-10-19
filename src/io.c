@@ -1,16 +1,7 @@
 #include "io.h"
+#include "port_manager.h"
 #include <stdint.h>
 #include <stddef.h>
-
-uint8_t in_b(uint16_t port) {
-    uint8_t ret;
-    __asm__ volatile ("inb %1, %0" : "=a" (ret) : "Nd" (port));
-    return ret;
-}
-
-void out_b(uint16_t port, uint8_t value) {
-    __asm__ volatile ("outb %0, %1" : : "a" (value), "Nd" (port));
-}
 
 #define SERIAL_COM1 0x3F8
 #define SERIAL_DATA_PORT(base) (base)
@@ -24,8 +15,39 @@ void out_b(uint16_t port, uint8_t value) {
 #define SERIAL_LINE_STATUS_TRANSMIT_EMPTY 0x20
 #define SERIAL_LINE_STATUS_EMPTY 0x40
 
+uint8_t read_port_b(PortHandle* handle) {
+    if (handle == NULL) {
+        return 0;
+    }
+    uint8_t ret;
+    __asm__ volatile ("inb %1, %0" : "=a" (ret) : "Nd" (handle->port));
+    return ret;
+}
+
+void write_port_b(PortHandle* handle, uint8_t value) {
+    if (handle == NULL) {
+        return;
+    }
+    __asm__ volatile ("outb %0, %1" : : "a" (value), "Nd" (handle->port));
+}
+
+uint8_t in_b(uint16_t port) {
+    uint8_t ret;
+    __asm__ volatile ("inb %1, %0" : "=a" (ret) : "Nd" (port));
+    return ret;
+}
+
+void out_b(uint16_t port, uint8_t value) {
+    __asm__ volatile ("outb %0, %1" : : "a" (value), "Nd" (port));
+}
+
 void init_serial() {
-    uint16_t port = SERIAL_COM1;
+    PortHandle* serial_handle = request_port(SERIAL_COM1);
+    if (serial_handle == NULL) {
+        return;
+    }
+
+    uint16_t port = serial_handle->port;
 
     out_b(port + 1, 0x00);
 

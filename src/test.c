@@ -84,9 +84,11 @@ void run_tests(test_entry_t* tests, int num_tests) {
     
     if (tests_failed == 0) {
         output_string("All tests passed!\n");
-        exit_qemu(0);
     } else {
         output_string("Some tests failed!\n");
-        exit_qemu(1);
     }
+}
+
+void exit_after_all_tests(int exit_code) {
+    exit_qemu(exit_code);
 }

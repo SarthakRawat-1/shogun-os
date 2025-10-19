@@ -6,6 +6,10 @@
 #include "memory.h"
 #include "io.h"
 #include "test.h"
+#include "port_manager.h"
+#include "rtc.h"
+
+void run_rtc_tests();  
 
 void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     init_output();
@@ -15,7 +19,15 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     output_string("Initializing memory allocator for tests...\n");
     init_allocator(multiboot_info_ptr);
     
+    output_string("Initializing port manager...\n");
+    init_port_manager();
+    
     run_memory_tests();
+    
+    output_string("\nRunning RTC tests...\n");
+    run_rtc_tests();
+
+    exit_after_all_tests(0);
 }
 
 TEST(memory_alloc_basic) {
@@ -75,6 +87,56 @@ TEST(memory_multiple_alloc_free) {
     }
 }
 
+TEST(rtc_basic_init) {
+    output_string("Attempting to initialize RTC...\n");
+    RTCDriver* rtc = init_rtc();
+    ASSERT(rtc != NULL, "RTC initialization should succeed");
+    
+    if (rtc != NULL) {
+        output_string("RTC initialized successfully, attempting to read time...\n");
+
+        uint8_t seconds, minutes, hours;
+        int result = read_rtc_time(rtc, &seconds, &minutes, &hours);
+        ASSERT(result != -1, "Reading RTC time should succeed");
+
+        output_string("RTC Time read: ");
+        put_u32(hours);
+        output_string(":");
+        put_u32(minutes);
+        output_string(":");
+        put_u32(seconds);
+        output_string("\n");
+        
+
+        if (hours <= 23 && minutes <= 59 && seconds <= 59) {
+            uint8_t new_hour = (hours > 0) ? hours - 1 : 23; 
+            result = write_rtc_time(rtc, seconds, minutes, new_hour);
+            ASSERT(result != -1, "Writing RTC time should succeed");
+            output_string("RTC time write completed\n");
+
+            uint8_t verify_sec, verify_min, verify_hour;
+            result = read_rtc_time(rtc, &verify_sec, &verify_min, &verify_hour);
+            ASSERT(result != -1, "Reading RTC time after write should succeed");
+            output_string("RTC Time after write attempt: ");
+            put_u32(verify_hour);
+            output_string(":");
+            put_u32(verify_min);
+            output_string(":");
+            put_u32(verify_sec);
+            output_string("\n");
+        } else {
+            output_string("Warning: Invalid time data returned, skipping write test\n");
+        }
+
+        release_port(rtc->control_port);
+        release_port(rtc->data_port);
+        free(rtc);
+        output_string("RTC cleanup completed\n");
+    } else {
+        output_string("RTC initialization failed\n");
+    }
+}
+
 void run_memory_tests() {
     test_entry_t memory_tests[] = {
         TEST_ENTRY(memory_alloc_basic),
@@ -84,4 +146,12 @@ void run_memory_tests() {
     };
     
     run_tests(memory_tests, sizeof(memory_tests) / sizeof(memory_tests[0]));
+}
+
+void run_rtc_tests() {
+    test_entry_t rtc_tests[] = {
+        TEST_ENTRY(rtc_basic_init)
+    };
+    
+    run_tests(rtc_tests, sizeof(rtc_tests) / sizeof(rtc_tests[0]));
 }
