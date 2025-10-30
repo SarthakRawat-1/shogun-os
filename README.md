@@ -20,7 +20,7 @@ Shogun-OS is a learning-focused operating system kernel that demonstrates fundam
 ✅ Real-Time Clock (RTC) driver with CMOS access  
 ✅ NMI (Non-Maskable Interrupt) handling for safe hardware access  
 ✅ Binary format configuration for proper time encoding  
-✅ Global Descriptor Table (GDT)
+✅ Global Descriptor Table (GDT) 
 ✅ Interrupt Descriptor Table (IDT) for CPU interrupt handling  
 ✅ Programmable Interrupt Controller (PIC) with masking, remapping, and EOI handling  
 ✅ Dynamic Interrupt Registration System for allowing device drivers to register handlers at runtime  
