@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "port_manager.h"
+#include "idt.h"  
 
 #define CMOS_REG_SECONDS        0x00
 #define CMOS_REG_MINUTES        0x02
@@ -43,5 +44,9 @@ int update_guarded_op(RTCDriver* rtc, uint8_t (*op_func)(RTCDriver*, void*), voi
 int read_rtc_time(RTCDriver* rtc, uint8_t* seconds, uint8_t* minutes, uint8_t* hours);
 
 int write_rtc_time(RTCDriver* rtc, uint8_t seconds, uint8_t minutes, uint8_t hours);
+
+int enable_rtc_interrupts(RTCDriver* rtc, interrupt_handler_t handler);
+int disable_rtc_interrupts(RTCDriver* rtc);
+void clear_rtc_interrupt(RTCDriver* rtc);
 
 #endif

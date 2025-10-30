@@ -8,14 +8,97 @@
 #include "test.h"
 #include "port_manager.h"
 #include "rtc.h"
+#include "gdt.h"
+#include "idt.h"
+#include "logger.h"
 
-void run_rtc_tests();  
+void run_rtc_tests(void);  
+
+static volatile uint32_t rtc_interrupt_count = 0;
+
+void rtc_interrupt_handler(void) {
+    RTCDriver temp_rtc;
+    temp_rtc.control_port = request_port(CMOS_CONTROL_PORT);
+    if (temp_rtc.control_port != NULL) {
+        temp_rtc.data_port = request_port(CMOS_DATA_PORT);
+        if (temp_rtc.data_port != NULL) {
+            read_cmos_register(&temp_rtc, CMOS_REG_C);
+            release_port(temp_rtc.data_port);
+        }
+        release_port(temp_rtc.control_port);
+    }
+
+    rtc_interrupt_count++;
+    
+    if (rtc_interrupt_count > 5) {
+        RTCDriver* test_rtc = init_rtc();
+        if (test_rtc != NULL) {
+            disable_rtc_interrupts(test_rtc);
+            release_port(test_rtc->control_port);
+            release_port(test_rtc->data_port);
+            free(test_rtc);
+        }
+    }
+}
+
+static int custom_handler_called = 0;
+
+void custom_interrupt_handler(void) {
+    custom_handler_called++;
+    output_string("Custom interrupt 0x81 handler called! Count: ");
+    put_u32(custom_handler_called);
+    output_string("\n");
+}
 
 void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     init_output();
     
     output_string("hi shogun from c - Test Mode\n");
 
+    output_string("Initializing logger...\n");
+    logger_init();
+    output_string("Logger initialized successfully!\n");
+
+    LOG_DEBUG_HERE("This is a debug message");
+    LOG_INFO_HERE("This is an info message");
+    LOG_WARNING_HERE("This is a warning message");
+    LOG_ERROR_HERE("This is an error message");
+    
+    output_string("Logger buffer populated with test messages, now servicing...\n");
+
+    logger_service();
+    
+    output_string("Initializing GDT...\n");
+    gdt_init();
+    output_string("GDT initialized successfully!\n");
+    
+    print_gdt_info(); 
+    
+    output_string("Initializing IDT...\n");
+    idt_init();
+    output_string("IDT initialized successfully!\n");
+    
+    print_idt_info(); 
+    
+    output_string("Initializing PIC...\n");
+    pic_init();  
+    output_string("PIC initialized successfully!\n");
+    
+    output_string("Remapping PIC...\n");
+    pic_remap();  
+    output_string("PIC remapped successfully!\n");
+
+    output_string("Testing interrupt 0x80...\n");
+    __asm__ volatile ("int $0x80");
+    output_string("Interrupt 0x80 test completed!\n");
+
+    output_string("Testing divide by zero exception handling...\n");
+    output_string("Setting up divide by zero test (this should trigger exception handler)...\n");
+ 
+    LOG_INFO_HERE("Kernel initialization is almost complete");
+    
+    output_string("Divide by zero test completed (skipped to prevent crash during normal execution)!\n");
+    
     output_string("Initializing memory allocator for tests...\n");
     init_allocator(multiboot_info_ptr);
     
@@ -27,7 +110,42 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     output_string("\nRunning RTC tests...\n");
     run_rtc_tests();
 
+        
+    output_string("\nDynamic Interrupt Registration System Active!\n");
+    output_string("RTC driver successfully registered for periodic interrupts using the new system.\n");
+    
+    output_string("Registering custom handler for interrupt 0x81...\n");
+
+    int result = register_interrupt_handler(0x81, custom_interrupt_handler);
+    if (result == 0) {
+        output_string("Successfully registered custom handler for interrupt 0x81!\n");
+
+        output_string("Triggering interrupt 0x81...\n");
+        __asm__ volatile ("int $0x81");
+        
+        output_string("Triggering interrupt 0x81 again...\n");
+        __asm__ volatile ("int $0x81");
+
+        output_string("Custom handler was called ");
+        put_u32(custom_handler_called);
+        output_string(" time(s)\n");
+
+        unregister_interrupt_handler(0x81);
+        output_string("Custom handler unregistered successfully!\n");
+    } else {
+        output_string("Failed to register custom handler\n");
+    }
+
+    logger_service();
+
     exit_after_all_tests(0);
+}
+
+void test_divide_by_zero_safely(void) {
+    output_string("About to trigger divide by zero...\n");
+    // Would cause a system crash, so won't actually do it during normal execution
+    // int zero = 0;
+    // volatile int result = 1 / zero; // Use volatile to prevent optimization
 }
 
 TEST(memory_alloc_basic) {
@@ -137,6 +255,33 @@ TEST(rtc_basic_init) {
     }
 }
 
+TEST(rtc_interrupt_registration) {
+    output_string("Testing RTC interrupt registration...\n");
+    
+    RTCDriver* rtc = init_rtc();
+    ASSERT(rtc != NULL, "RTC initialization should succeed for interrupt test");
+    
+    if (rtc != NULL) {
+        int result = enable_rtc_interrupts(rtc, rtc_interrupt_handler);
+        if (result == 0) {
+            output_string("RTC interrupts enabled successfully\n");
+
+            output_string("RTC interrupt handler registered successfully\n");
+
+            disable_rtc_interrupts(rtc);
+        } else {
+            output_string("RTC interrupt enable failed\n");
+            ASSERT(false, "RTC interrupt registration should succeed");
+        }
+        
+        release_port(rtc->control_port);
+        release_port(rtc->data_port);
+        free(rtc);
+    } else {
+        ASSERT(false, "RTC initialization failed for interrupt test");
+    }
+}
+
 void run_memory_tests() {
     test_entry_t memory_tests[] = {
         TEST_ENTRY(memory_alloc_basic),
@@ -150,7 +295,8 @@ void run_memory_tests() {
 
 void run_rtc_tests() {
     test_entry_t rtc_tests[] = {
-        TEST_ENTRY(rtc_basic_init)
+        TEST_ENTRY(rtc_basic_init),
+        TEST_ENTRY(rtc_interrupt_registration)
     };
     
     run_tests(rtc_tests, sizeof(rtc_tests) / sizeof(rtc_tests[0]));

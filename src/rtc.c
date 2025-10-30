@@ -2,6 +2,7 @@
 #include "io.h"
 #include "terminal.h"
 #include "memory.h"
+#include "idt.h"
 #include <stdbool.h>
 
 RTCDriver* init_rtc() {
@@ -70,7 +71,7 @@ void set_data_format(RTCDriver* rtc) {
 
     uint8_t status_reg_b = read_cmos_register(rtc, CMOS_REG_B);
 
-    status_reg_b |= (1 << 1) | (1 << 2);  
+    status_reg_b |= (1 << 1) | (1 << 2);  // Enables 24 hour mode and binary format
 
     write_cmos_register(rtc, CMOS_REG_B, status_reg_b);
 }
@@ -152,4 +153,63 @@ int write_rtc_time(RTCDriver* rtc, uint8_t seconds, uint8_t minutes, uint8_t hou
     int result = update_guarded_op(rtc, write_time_guarded_op, time_data);
     
     return result;
+}
+
+int enable_rtc_interrupts(RTCDriver* rtc, interrupt_handler_t handler) {
+    if (rtc == NULL) {
+        return -1;
+    }
+    
+    read_cmos_register(rtc, CMOS_REG_C);
+    
+    // RTC interrupt is connected to IRQ 8, which after remapping goes to vector 72
+    // IRQ 8 is on slave PIC (PIC2) with index 0 (8th overall - 8 = 0 on slave PIC)
+    IrqId rtc_irq;
+    rtc_irq.type = IRQ_PIC2;  
+    rtc_irq.index = 0;        
+    
+    int result = register_interrupt_handler_irq(rtc_irq, handler);
+    if (result != 0) {
+        output_string("Failed to register RTC interrupt handler\n");
+        return -1;
+    }
+    
+    // Set up periodic interrupts in CMOS register A
+    uint8_t reg_a = read_cmos_register(rtc, CMOS_REG_A);
+
+    reg_a = (reg_a & 0xF0) | 1;  
+    write_cmos_register(rtc, CMOS_REG_A, reg_a);
+    
+    // Enable periodic interrupts in CMOS register B
+    uint8_t reg_b = read_cmos_register(rtc, CMOS_REG_B);
+    reg_b |= 0x40;  // Set bit 6 (PIE - Periodic Interrupt Enable)
+    write_cmos_register(rtc, CMOS_REG_B, reg_b);
+    
+    return 0;
+}
+
+int disable_rtc_interrupts(RTCDriver* rtc) {
+    if (rtc == NULL) {
+        return -1;
+    }
+    
+    // Disable periodic interrupts in CMOS register B
+    uint8_t reg_b = read_cmos_register(rtc, CMOS_REG_B);
+    reg_b &= ~0x40;  // Clear bit 6 (PIE - Periodic Interrupt Enable)
+    write_cmos_register(rtc, CMOS_REG_B, reg_b);
+    
+    IrqId rtc_irq;
+    rtc_irq.type = IRQ_PIC2;  
+    rtc_irq.index = 0;        
+    
+    int result = unregister_interrupt_handler_irq(rtc_irq);
+    return result;
+}
+
+void clear_rtc_interrupt(RTCDriver* rtc) {
+    if (rtc == NULL) {
+        return;
+    }
+
+    read_cmos_register(rtc, CMOS_REG_C);
 }

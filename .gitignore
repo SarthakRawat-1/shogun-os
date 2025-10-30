@@ -5,3 +5,6 @@ isodir/
 obj/
 bin/
 *.tmp
+src/idt.s
+src/idt_init.inc
+src/interrupt_handlers.inc

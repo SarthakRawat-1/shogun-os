@@ -33,6 +33,11 @@ MEMORY = $(SRCDIR)/memory.c
 IO = $(SRCDIR)/io.c
 PORT_MANAGER = $(SRCDIR)/port_manager.c
 RTC = $(SRCDIR)/rtc.c
+GDT_C = $(SRCDIR)/gdt.c
+GDT_S = $(SRCDIR)/gdt.s
+IDT_C = $(SRCDIR)/idt.c
+IDT_S = $(SRCDIR)/idt.s
+LOGGER = $(SRCDIR)/logger.c
 TEST = $(SRCDIR)/test.c
 LINKER = linker.ld
 TARGET_KERNEL = $(BINDIR)/kernel
@@ -41,7 +46,15 @@ TARGET_KERNEL = $(BINDIR)/kernel
 
 all:
 	mkdir -p $(OBJDIR) $(BINDIR)
+	# Generate interrupt handlers assembly file
+	python3 generate_interrupt_handlers.py
+	# Generate IDT initialization code
+	python3 generate_idt_init.py
+	# Generate interrupt handler extern declarations
+	python3 generate_interrupt_externs.py
 	$(AS) $(ASFLAGS) $(BOOT) -o $(OBJDIR)/boot.o
+	$(AS) $(ASFLAGS) $(GDT_S) -o $(OBJDIR)/gdt.o
+	$(AS) $(ASFLAGS) $(IDT_S) -o $(OBJDIR)/idt_asm.o
 	$(CC) $(CFLAGS) -c $(KERNEL) -o $(OBJDIR)/kernel.o
 	$(CC) $(CFLAGS) -c $(TERMINAL) -o $(OBJDIR)/terminal.o
 	$(CC) $(CFLAGS) -c $(LIBC) -o $(OBJDIR)/libc.o
@@ -49,8 +62,11 @@ all:
 	$(CC) $(CFLAGS) -c $(IO) -o $(OBJDIR)/io.o
 	$(CC) $(CFLAGS) -c $(PORT_MANAGER) -o $(OBJDIR)/port_manager.o
 	$(CC) $(CFLAGS) -c $(RTC) -o $(OBJDIR)/rtc.o
+	$(CC) $(CFLAGS) -c $(GDT_C) -o $(OBJDIR)/gdt_c.o
+	$(CC) $(CFLAGS) -c $(IDT_C) -o $(OBJDIR)/idt_c.o
+	$(CC) $(CFLAGS) -c $(LOGGER) -o $(OBJDIR)/logger.o
 	$(CC) $(CFLAGS) -c $(TEST) -o $(OBJDIR)/test.o
-	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/port_manager.o $(OBJDIR)/rtc.o $(OBJDIR)/test.o
+	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/gdt.o $(OBJDIR)/idt_asm.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/port_manager.o $(OBJDIR)/rtc.o $(OBJDIR)/gdt_c.o $(OBJDIR)/idt_c.o $(OBJDIR)/logger.o $(OBJDIR)/test.o
 	mkdir -p isodir/boot/grub
 	cp $(TARGET_KERNEL) isodir/boot/kernel
 	cp grub.cfg isodir/boot/grub/grub.cfg
@@ -58,7 +74,7 @@ all:
 	rm -rf isodir
 
 clean:
-	rm -rf $(OBJDIR) $(BINDIR)
+	rm -rf $(OBJDIR) $(BINDIR) src/idt.s src/idt_init.inc src/interrupt_handlers.inc
 
 debug: $(OBJDIR)/kernel.o
 	objdump -d $(OBJDIR)/kernel.o
