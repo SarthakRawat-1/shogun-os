@@ -5,8 +5,85 @@
 #include "idt.h"
 #include <stdbool.h>
 
-// Global tick counter for monotonic clock
+// Global tick counter for monotonic clock (kept for backward compatibility)
 volatile uint32_t system_tick_count = 0;
+
+MonotonicTime* monotonic_time = NULL;
+WakeUpList* wake_up_list = NULL;
+
+// Initialize global monotonic time
+void monotonic_time_init_global(void) {
+    if (monotonic_time == NULL) {
+        monotonic_time = (MonotonicTime*)malloc(sizeof(MonotonicTime));
+        if (monotonic_time != NULL) {
+            atomic_store(&monotonic_time->tick_count, 0);
+        }
+    }
+}
+
+uint32_t monotonic_time_get_ticks_global(void) {
+    if (monotonic_time != NULL) {
+        return atomic_load(&monotonic_time->tick_count);
+    }
+    return 0;
+}
+
+void monotonic_time_increment_global(void) {
+    if (monotonic_time != NULL) {
+        atomic_fetch_add(&monotonic_time->tick_count, 1);
+    }
+}
+
+// Initialize wake-up list
+void wake_up_list_init(void) {
+    if (wake_up_list == NULL) {
+        wake_up_list = (WakeUpList*)malloc(sizeof(WakeUpList));
+        if (wake_up_list != NULL) {
+            wake_up_list->entries = NULL;
+            atomic_store(&wake_up_list->entry_count, 0);
+        }
+    }
+}
+
+void wake_up_list_add(uint32_t wake_up_tick, void (*callback)(void* data), void* callback_data) {
+    if (wake_up_list == NULL) return;
+
+    WakeUpEntry* new_entry = (WakeUpEntry*)malloc(sizeof(WakeUpEntry));
+    if (new_entry == NULL) return;
+
+    new_entry->wake_up_tick = wake_up_tick;
+    new_entry->callback = callback;
+    new_entry->callback_data = callback_data;
+    new_entry->next = wake_up_list->entries;
+    wake_up_list->entries = new_entry;
+
+    atomic_fetch_add(&wake_up_list->entry_count, 1);
+}
+
+void wake_up_list_check_and_execute(void) {
+    if (wake_up_list == NULL) return;
+
+    uint32_t current_tick = monotonic_time_get_ticks_global();
+    WakeUpEntry* current = wake_up_list->entries;
+    WakeUpEntry** prev_ptr = &wake_up_list->entries;
+
+    while (current) {
+        if (current->wake_up_tick <= current_tick) {
+            if (current->callback) {
+                current->callback(current->callback_data);
+            }
+
+            *prev_ptr = current->next;
+            WakeUpEntry* to_free = current;
+            current = current->next;
+            free(to_free);
+            atomic_fetch_sub(&wake_up_list->entry_count, 1);
+        } else {
+            prev_ptr = &current->next;
+            current = current->next;
+        }
+    }
+}
 
 RTCDriver* init_rtc() {
     PortHandle* control_port = request_port(CMOS_CONTROL_PORT);
@@ -260,7 +337,81 @@ void sleep_ticks(uint32_t ticks) {
     }
 }
 
+// Callback function to wake up the executor when sleep is complete
+static void sleep_callback(void* data) {
+    (void)data; 
+    executor_wake_up();
+}
+
 void sleep_seconds(uint32_t seconds) {
     uint32_t ticks = seconds * 256;
-    sleep_ticks(ticks);
+    uint32_t target_tick = monotonic_time_get_ticks_global() + ticks;
+
+    // Add to wake-up list to wake up the executor when sleep is complete
+    wake_up_list_add(target_tick, sleep_callback, NULL);
+
+    // Now we wait by letting the executor handle it
+    // In a real scenario, this would be part of a future that waits
+    for (volatile uint32_t i = 0; monotonic_time_get_ticks_global() < target_tick; i++) {
+        // Busy wait for demonstration
+        // In async system, this would be handled by the executor
+    }
+}
+
+void sleep_seconds_async(uint32_t seconds) {
+    uint32_t ticks = seconds * 256;
+    Future* sleep_future = sleep_future_create(ticks);
+    if (sleep_future != NULL) {
+        Executor* executor = get_global_executor();
+        executor_spawn(executor, sleep_future);
+    }
+}
+
+// Async RTC future implementation
+static FutureState async_rtc_future_poll(Future* future, void* context) {
+    AsyncRTCFuture* async_rtc = (AsyncRTCFuture*)future;
+
+    // For simplicity, we'll consider the RTC read as immediately available
+    // In a real implementation, this would check if the RTC is ready
+    if (async_rtc->rtc != NULL && async_rtc->seconds != NULL &&
+        async_rtc->minutes != NULL && async_rtc->hours != NULL) {
+
+        // Perform the RTC read
+        int result = read_rtc_time(async_rtc->rtc, async_rtc->seconds,
+                                  async_rtc->minutes, async_rtc->hours);
+
+        // If read was successful, mark as ready
+        if (result != -1) {
+            return FUTURE_READY;
+        }
+    }
+
+    return FUTURE_PENDING;
+}
+
+static void async_rtc_future_cleanup(Future* future) {
+    // Free the async RTC future
+    free(future);
+}
+
+static const FutureVTable async_rtc_future_vtable = {
+    .poll = async_rtc_future_poll,
+    .cleanup = async_rtc_future_cleanup
+};
+
+Future* async_rtc_read_time_create(RTCDriver* rtc, uint8_t* seconds, uint8_t* minutes, uint8_t* hours) {
+    AsyncRTCFuture* async_rtc = (AsyncRTCFuture*)malloc(sizeof(AsyncRTCFuture));
+    if (!async_rtc) {
+        return NULL;
+    }
+
+    async_rtc->base.vtable = &async_rtc_future_vtable;
+    async_rtc->base.is_completed = false;
+    async_rtc->base.waker = NULL;
+    async_rtc->rtc = rtc;
+    async_rtc->seconds = seconds;
+    async_rtc->minutes = minutes;
+    async_rtc->hours = hours;
+
+    return (Future*)async_rtc;
 }

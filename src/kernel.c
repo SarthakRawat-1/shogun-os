@@ -11,6 +11,15 @@
 #include "gdt.h"
 #include "idt.h"
 #include "logger.h"
+#include "async_executor.h"
+
+static size_t my_strlen(const char* str) {
+    size_t len = 0;
+    while (str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
 
 void run_rtc_tests(void);  
 
@@ -22,6 +31,8 @@ static RTCDriver* system_rtc_instance = NULL;
 void rtc_interrupt_handler(void) {
     system_tick_count++;
 
+    monotonic_time_increment_global();
+
     if (system_rtc_instance != NULL) {
         clear_rtc_interrupt(system_rtc_instance);
     } else {
@@ -30,9 +41,11 @@ void rtc_interrupt_handler(void) {
 
     rtc_interrupt_count++;
 
+    wake_up_list_check_and_execute();
+
     // Debug: Print every 256 ticks (1 second)
     if (system_tick_count % 256 == 0) {
-        output_string(".");  
+        output_string(".");
     }
 
     pic_send_eoi(0x48);
@@ -49,7 +62,7 @@ void custom_interrupt_handler(void) {
 
 void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     init_output();
-    
+
     output_string("hi shogun from c - Test Mode\n");
 
     output_string("Initializing logger...\n");
@@ -60,29 +73,29 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     LOG_INFO_HERE("This is an info message");
     LOG_WARNING_HERE("This is a warning message");
     LOG_ERROR_HERE("This is an error message");
-    
+
     output_string("Logger buffer populated with test messages, now servicing...\n");
 
     logger_service();
-    
+
     output_string("Initializing GDT...\n");
     gdt_init();
     output_string("GDT initialized successfully!\n");
-    
-    print_gdt_info(); 
-    
+
+    print_gdt_info();
+
     output_string("Initializing IDT...\n");
     idt_init();
     output_string("IDT initialized successfully!\n");
-    
-    print_idt_info(); 
-    
+
+    print_idt_info();
+
     output_string("Initializing PIC...\n");
-    pic_init();  
+    pic_init();
     output_string("PIC initialized successfully!\n");
-    
+
     output_string("Remapping PIC...\n");
-    pic_remap();  
+    pic_remap();
     output_string("PIC remapped successfully!\n");
 
     output_string("Testing interrupt 0x80...\n");
@@ -91,19 +104,27 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
 
     output_string("Testing divide by zero exception handling...\n");
     output_string("Setting up divide by zero test (this should trigger exception handler)...\n");
- 
+
     LOG_INFO_HERE("Kernel initialization is almost complete");
-    
+
     output_string("Divide by zero test completed (skipped to prevent crash during normal execution)!\n");
-    
+
     output_string("Initializing memory allocator for tests...\n");
     init_allocator(multiboot_info_ptr);
-    
+
     output_string("Initializing port manager...\n");
     init_port_manager();
-    
+
+    // Initialize the async system components
+    output_string("Initializing monotonic time...\n");
+    monotonic_time_init_global();
+    output_string("Initializing wake-up list...\n");
+    wake_up_list_init();
+    output_string("Initializing async executor...\n");
+    async_init();
+
     run_memory_tests();
-    
+
     output_string("\nRunning RTC tests...\n");
     run_rtc_tests();
 
@@ -124,7 +145,7 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     } else {
         output_string("Failed to initialize RTC for system clock\n");
     }
-    
+
     output_string("Registering custom handler for interrupt 0x81...\n");
 
     int result = register_interrupt_handler(0x81, custom_interrupt_handler);
@@ -133,7 +154,7 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
 
         output_string("Triggering interrupt 0x81...\n");
         __asm__ volatile ("int $0x81");
-        
+
         output_string("Triggering interrupt 0x81 again...\n");
         __asm__ volatile ("int $0x81");
 
@@ -145,6 +166,18 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
         output_string("Custom handler unregistered successfully!\n");
     } else {
         output_string("Failed to register custom handler\n");
+    }
+
+    output_string("Registering async serial interrupt handler for IRQ 4...\n");
+    IrqId serial_irq;
+    serial_irq.type = IRQ_PIC1;  // Serial COM1 is typically IRQ 4
+    serial_irq.index = 4;
+    result = register_interrupt_handler_irq(serial_irq, async_serial_interrupt_handler);
+    if (result == 0) {
+        output_string("Successfully registered async serial interrupt handler!\n");
+        pic_unmask_irq(4);  
+    } else {
+        output_string("Failed to register async serial interrupt handler\n");
     }
 
     logger_service();
@@ -170,6 +203,34 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     output_string("\n");
 
     output_string("Sleep functionality demonstrated successfully!\n");
+ 
+    output_string("\nDemonstrating async functionality...\n");
+
+    Executor* executor = get_global_executor();
+
+    output_string("Creating a 3-second async sleep future...\n");
+
+    Future* sleep_future = sleep_future_create(768);
+    if (sleep_future != NULL) {
+        output_string("Async sleep future created, spawning to executor...\n");
+        executor_spawn(executor, sleep_future);
+        output_string("Sleep future spawned.\n");
+    }
+
+    output_string("Creating an async serial write future...\n");
+    // Create an async serial write future
+    const char* serial_data = "Async serial write completed!\n";
+    Future* serial_future = async_serial_write_create(serial_data, my_strlen(serial_data));
+    if (serial_future != NULL) {
+        output_string("Async serial write future created, spawning to executor...\n");
+        executor_spawn(executor, serial_future);
+        output_string("Serial write future spawned.\n");
+    }
+
+    output_string("Both futures spawned to executor. They will execute concurrently.\n");
+
+    output_string("Starting async executor... (this will run indefinitely with concurrent tasks)\n");
+    executor_run(executor);
 
     exit_after_all_tests(0);
 }

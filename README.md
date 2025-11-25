@@ -8,23 +8,28 @@ Shogun-OS is a learning-focused operating system kernel that demonstrates fundam
 
 ## Features
 
-✅ Multiboot-compliant kernel  
-✅ VGA text mode output with proper scrolling and new-line support  
-✅ Multiboot information parsing (memory map, bootloader name)  
-✅ Custom linked-list memory allocator for dynamic memory management  
-✅ Cross-platform build system  
-✅ UART/serial output for enhanced debugging and testing  
-✅ Automated test infrastructure with pass/fail reporting  
-✅ Dual output support (VGA and serial)  
-✅ Port Manager system for safe I/O port allocation  
-✅ Real-Time Clock (RTC) driver with CMOS access  
-✅ NMI (Non-Maskable Interrupt) handling for safe hardware access  
-✅ Binary format configuration for proper time encoding  
-✅ Global Descriptor Table (GDT)  
-✅ Interrupt Descriptor Table (IDT) for CPU interrupt handling  
-✅ Programmable Interrupt Controller (PIC) with masking, remapping, and EOI handling  
-✅ Dynamic Interrupt Registration System for allowing device drivers to register handlers at runtime  
+✅ Multiboot-compliant kernel
+✅ VGA text mode output with proper scrolling and new-line support
+✅ Multiboot information parsing (memory map, bootloader name)
+✅ Custom linked-list memory allocator for dynamic memory management
+✅ Cross-platform build system
+✅ UART/serial output for enhanced debugging and testing
+✅ Automated test infrastructure with pass/fail reporting
+✅ Dual output support (VGA and serial)
+✅ Port Manager system for safe I/O port allocation
+✅ Real-Time Clock (RTC) driver with CMOS access
+✅ NMI (Non-Maskable Interrupt) handling for safe hardware access
+✅ Binary format configuration for proper time encoding
+✅ Global Descriptor Table (GDT)
+✅ Interrupt Descriptor Table (IDT) for CPU interrupt handling
+✅ Programmable Interrupt Controller (PIC) with masking, remapping, and EOI handling
+✅ Dynamic Interrupt Registration System for allowing device drivers to register handlers at runtime
 ✅ Comprehensive logging infrastructure with circular buffer and multiple log levels
+✅ Monotonic clock system using periodic RTC interrupts for accurate timekeeping
+✅ CPU-efficient sleep functionality using HLT instruction and interrupt-driven timing
+✅ Async/Await support in kernel with Future-based executor system
+✅ Interrupt-driven async operations with Waker notification mechanism
+✅ Async serial driver with interrupt-driven I/O operations
 
 ## Installation
 

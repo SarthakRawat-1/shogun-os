@@ -39,6 +39,7 @@ IDT_C = $(SRCDIR)/idt.c
 IDT_S = $(SRCDIR)/idt.s
 LOGGER = $(SRCDIR)/logger.c
 TEST = $(SRCDIR)/test.c
+ASYNC_EXECUTOR = $(SRCDIR)/async_executor.c
 LINKER = linker.ld
 TARGET_KERNEL = $(BINDIR)/kernel
 
@@ -66,7 +67,8 @@ all:
 	$(CC) $(CFLAGS) -c $(IDT_C) -o $(OBJDIR)/idt_c.o
 	$(CC) $(CFLAGS) -c $(LOGGER) -o $(OBJDIR)/logger.o
 	$(CC) $(CFLAGS) -c $(TEST) -o $(OBJDIR)/test.o
-	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/gdt.o $(OBJDIR)/idt_asm.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/port_manager.o $(OBJDIR)/rtc.o $(OBJDIR)/gdt_c.o $(OBJDIR)/idt_c.o $(OBJDIR)/logger.o $(OBJDIR)/test.o
+	$(CC) $(CFLAGS) -c $(ASYNC_EXECUTOR) -o $(OBJDIR)/async_executor.o
+	$(LD) $(LDFLAGS) -o $(TARGET_KERNEL) $(OBJDIR)/boot.o $(OBJDIR)/gdt.o $(OBJDIR)/idt_asm.o $(OBJDIR)/kernel.o $(OBJDIR)/terminal.o $(OBJDIR)/libc.o $(OBJDIR)/memory.o $(OBJDIR)/io.o $(OBJDIR)/port_manager.o $(OBJDIR)/rtc.o $(OBJDIR)/gdt_c.o $(OBJDIR)/idt_c.o $(OBJDIR)/logger.o $(OBJDIR)/test.o $(OBJDIR)/async_executor.o
 	mkdir -p isodir/boot/grub
 	cp $(TARGET_KERNEL) isodir/boot/kernel
 	cp grub.cfg isodir/boot/grub/grub.cfg
