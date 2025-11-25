@@ -33,6 +33,7 @@ void pic_init_ports(void);
 void pic_init(void);
 void pic_remap(void);
 void pic_send_eoi(uint8_t int_num);
+void pic_unmask_irq(uint8_t irq);
 
 void handle_divide_by_zero(void);
 void handle_general_protection_fault(void);

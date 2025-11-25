@@ -49,4 +49,14 @@ int enable_rtc_interrupts(RTCDriver* rtc, interrupt_handler_t handler);
 int disable_rtc_interrupts(RTCDriver* rtc);
 void clear_rtc_interrupt(RTCDriver* rtc);
 
+void acknowledge_rtc_interrupt(void);
+
+extern volatile uint32_t system_tick_count;
+
+uint32_t get_system_ticks(void);
+
+void sleep_ticks(uint32_t ticks);
+
+void sleep_seconds(uint32_t seconds);
+
 #endif

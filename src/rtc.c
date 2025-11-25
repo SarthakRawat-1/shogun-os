@@ -5,6 +5,9 @@
 #include "idt.h"
 #include <stdbool.h>
 
+// Global tick counter for monotonic clock
+volatile uint32_t system_tick_count = 0;
+
 RTCDriver* init_rtc() {
     PortHandle* control_port = request_port(CMOS_CONTROL_PORT);
     if (control_port == NULL) {
@@ -159,32 +162,31 @@ int enable_rtc_interrupts(RTCDriver* rtc, interrupt_handler_t handler) {
     if (rtc == NULL) {
         return -1;
     }
-    
-    read_cmos_register(rtc, CMOS_REG_C);
-    
+
     // RTC interrupt is connected to IRQ 8, which after remapping goes to vector 72
-    // IRQ 8 is on slave PIC (PIC2) with index 0 (8th overall - 8 = 0 on slave PIC)
     IrqId rtc_irq;
-    rtc_irq.type = IRQ_PIC2;  
-    rtc_irq.index = 0;        
-    
+    rtc_irq.type = IRQ_PIC2;
+    rtc_irq.index = 0;
+
     int result = register_interrupt_handler_irq(rtc_irq, handler);
     if (result != 0) {
         output_string("Failed to register RTC interrupt handler\n");
         return -1;
     }
-    
-    // Set up periodic interrupts in CMOS register A
+
+    // Set up periodic interrupts in CMOS register A for 256 Hz
     uint8_t reg_a = read_cmos_register(rtc, CMOS_REG_A);
 
-    reg_a = (reg_a & 0xF0) | 1;  
+    reg_a = (reg_a & 0xF0) | 0x08;  
     write_cmos_register(rtc, CMOS_REG_A, reg_a);
-    
+
     // Enable periodic interrupts in CMOS register B
     uint8_t reg_b = read_cmos_register(rtc, CMOS_REG_B);
     reg_b |= 0x40;  // Set bit 6 (PIE - Periodic Interrupt Enable)
     write_cmos_register(rtc, CMOS_REG_B, reg_b);
-    
+
+    pic_unmask_irq(8);
+
     return 0;
 }
 
@@ -195,7 +197,7 @@ int disable_rtc_interrupts(RTCDriver* rtc) {
     
     // Disable periodic interrupts in CMOS register B
     uint8_t reg_b = read_cmos_register(rtc, CMOS_REG_B);
-    reg_b &= ~0x40;  // Clear bit 6 (PIE - Periodic Interrupt Enable)
+    reg_b &= ~0x40;  
     write_cmos_register(rtc, CMOS_REG_B, reg_b);
     
     IrqId rtc_irq;
@@ -212,4 +214,53 @@ void clear_rtc_interrupt(RTCDriver* rtc) {
     }
 
     read_cmos_register(rtc, CMOS_REG_C);
+}
+
+void acknowledge_rtc_interrupt(void) {
+    PortHandle* control_port = request_port(CMOS_CONTROL_PORT);
+    if (control_port != NULL) {
+        PortHandle* data_port = request_port(CMOS_DATA_PORT);
+        if (data_port != NULL) {
+            uint8_t nmi_mask = 0x00; 
+            uint8_t reg_select = CMOS_REG_C | nmi_mask;
+            write_port_b(control_port, reg_select);
+            uint8_t value = read_port_b(data_port);  
+
+            release_port(data_port);
+        }
+        release_port(control_port);
+    }
+}
+
+uint32_t get_system_ticks(void) {
+    return system_tick_count;
+}
+
+void sleep_ticks(uint32_t ticks) {
+    if (ticks == 0) return;
+
+    uint32_t start_tick = system_tick_count;
+    uint32_t target_tick = start_tick + ticks;
+
+    // Enable interrupts globally before entering sleep loop
+    __asm__ volatile ("sti");
+
+    uint32_t current_tick = start_tick;
+    uint32_t loop_counter = 0;
+    const uint32_t MAX_LOOP_COUNT = 1000000; 
+
+    while (current_tick < target_tick && loop_counter < MAX_LOOP_COUNT) {
+        __asm__ volatile ("hlt");  
+        current_tick = system_tick_count;
+        loop_counter++;
+    }
+
+    if (loop_counter >= MAX_LOOP_COUNT) {
+        output_string("WARNING: Sleep function timeout - tick counter may not be working\n");
+    }
+}
+
+void sleep_seconds(uint32_t seconds) {
+    uint32_t ticks = seconds * 256;
+    sleep_ticks(ticks);
 }

@@ -180,14 +180,15 @@ void pic_init_ports(void) {
 }
 
 void pic_send_eoi(uint8_t int_num) {
-    if(int_num >= 0x28 && int_num <= 0x2F) {
+    // After remapping: PIC2 vectors are 0x48-0x4F (72-79), PIC1 vectors are 0x40-0x47 (64-71)
+    if(int_num >= 0x48 && int_num <= 0x4F) {  // Remapped slave PIC (IRQs 8-15 -> vectors 72-79)
         if (slave_pic_cmd) {
             write_port_b(slave_pic_cmd, 0x20);
         }
         if (master_pic_cmd) {
             write_port_b(master_pic_cmd, 0x20);
         }
-    } else if(int_num >= 0x20 && int_num <= 0x27) {
+    } else if(int_num >= 0x40 && int_num <= 0x47) {  // Remapped master PIC (IRQs 0-7 -> vectors 64-71)
         if (master_pic_cmd) {
             write_port_b(master_pic_cmd, 0x20);
         }
@@ -256,4 +257,31 @@ int register_interrupt_handler_irq(IrqId irq_id, interrupt_handler_t handler) {
 int unregister_interrupt_handler_irq(IrqId irq_id) {
     uint8_t vector = irq_id_to_vector(irq_id);
     return unregister_interrupt_handler(vector);
+}
+
+void pic_unmask_irq(uint8_t irq) {
+    uint16_t port;
+    uint8_t value;
+    
+    if (irq < 8) {
+        if (master_pic_data) {
+            value = read_port_b(master_pic_data);
+            value &= ~(1 << irq);
+            write_port_b(master_pic_data, value);
+        }
+    } else {
+        if (irq >= 8 && irq < 16) {
+            if (master_pic_data) {
+                value = read_port_b(master_pic_data);
+                value &= ~(1 << 2);  // Unmask IRQ 2 (cascade)
+                write_port_b(master_pic_data, value);
+            }
+            
+            if (slave_pic_data) {
+                value = read_port_b(slave_pic_data);
+                value &= ~(1 << (irq - 8));
+                write_port_b(slave_pic_data, value);
+            }
+        }
+    }
 }

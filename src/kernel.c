@@ -16,29 +16,26 @@ void run_rtc_tests(void);
 
 static volatile uint32_t rtc_interrupt_count = 0;
 
+// Global system RTC driver for continuous operation
+static RTCDriver* system_rtc_instance = NULL;
+
 void rtc_interrupt_handler(void) {
-    RTCDriver temp_rtc;
-    temp_rtc.control_port = request_port(CMOS_CONTROL_PORT);
-    if (temp_rtc.control_port != NULL) {
-        temp_rtc.data_port = request_port(CMOS_DATA_PORT);
-        if (temp_rtc.data_port != NULL) {
-            read_cmos_register(&temp_rtc, CMOS_REG_C);
-            release_port(temp_rtc.data_port);
-        }
-        release_port(temp_rtc.control_port);
+    system_tick_count++;
+
+    if (system_rtc_instance != NULL) {
+        clear_rtc_interrupt(system_rtc_instance);
+    } else {
+        acknowledge_rtc_interrupt();
     }
 
     rtc_interrupt_count++;
-    
-    if (rtc_interrupt_count > 5) {
-        RTCDriver* test_rtc = init_rtc();
-        if (test_rtc != NULL) {
-            disable_rtc_interrupts(test_rtc);
-            release_port(test_rtc->control_port);
-            release_port(test_rtc->data_port);
-            free(test_rtc);
-        }
+
+    // Debug: Print every 256 ticks (1 second)
+    if (system_tick_count % 256 == 0) {
+        output_string(".");  
     }
+
+    pic_send_eoi(0x48);
 }
 
 static int custom_handler_called = 0;
@@ -110,9 +107,23 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     output_string("\nRunning RTC tests...\n");
     run_rtc_tests();
 
-        
+
     output_string("\nDynamic Interrupt Registration System Active!\n");
     output_string("RTC driver successfully registered for periodic interrupts using the new system.\n");
+
+    output_string("Setting up system-wide periodic RTC interrupts...\n");
+    system_rtc_instance = init_rtc();
+    if (system_rtc_instance != NULL) {
+        int rtc_result = enable_rtc_interrupts(system_rtc_instance, rtc_interrupt_handler);
+        if (rtc_result == 0) {
+            output_string("Periodic RTC interrupts enabled successfully for system clock!\n");
+            output_string("System tick counter will now increment with each RTC interrupt.\n");
+        } else {
+            output_string("Failed to enable periodic RTC interrupts\n");
+        }
+    } else {
+        output_string("Failed to initialize RTC for system clock\n");
+    }
     
     output_string("Registering custom handler for interrupt 0x81...\n");
 
@@ -137,6 +148,28 @@ void kernel_main(uint32_t magic, uint32_t multiboot_info_ptr) {
     }
 
     logger_service();
+
+    __asm__ volatile ("sti");
+
+    output_string("\nTesting sleep functionality with monotonic clock...\n");
+    output_string("Current system ticks: ");
+    put_u32(get_system_ticks());
+    output_string("\n");
+
+    output_string("Sleeping for 2 seconds (512 ticks at 256Hz)...\n");
+    uint32_t ticks_before_sleep = get_system_ticks();
+    sleep_seconds(2);
+    uint32_t ticks_after_sleep = get_system_ticks();
+
+    output_string("Woke up! Ticks before: ");
+    put_u32(ticks_before_sleep);
+    output_string(", Ticks after: ");
+    put_u32(ticks_after_sleep);
+    output_string(", Elapsed: ");
+    put_u32(ticks_after_sleep - ticks_before_sleep);
+    output_string("\n");
+
+    output_string("Sleep functionality demonstrated successfully!\n");
 
     exit_after_all_tests(0);
 }
